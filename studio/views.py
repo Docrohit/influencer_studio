@@ -5,10 +5,11 @@ from .models import Account
 from .tasks import process_telegram_intent
 
 @csrf_exempt
-def telegram_webhook(request):
+def telegram_webhook(request, custom_chat_id=None):
     """
     Main entry point for all Telegram bot interactions.
     Handles approvals, image uploads, and routing to the LLM intent parser.
+    Supports a dynamic URL for multi-tenant BYO-Bot webhook registrations.
     """
     if request.method == 'POST':
         try:
@@ -27,15 +28,17 @@ def telegram_webhook(request):
                 telegram_chat_id=chat_id,
                 defaults={'telegram_username': username, 'status': 'pending'}
             )
+            
+            # The token to reply with is their own custom bot token if they have one
+            reply_token = account.bot_token if account.bot_token else None
 
             # 2. Check Approval Status
             if account.status == 'pending':
-                send_telegram_message(chat_id, "⏳ Your account is pending approval from the admin.")
-                # Here we would also fire an alert to your YouTube Approvals Bot via n8n/webhook
+                send_telegram_message(chat_id, "⏳ Your account is pending approval from the admin.", custom_bot_token=reply_token)
                 trigger_admin_approval_request(account)
                 return JsonResponse({'status': 'ok'})
             elif account.status == 'rejected':
-                send_telegram_message(chat_id, "❌ Your access request was denied.")
+                send_telegram_message(chat_id, "❌ Your access request was denied.", custom_bot_token=reply_token)
                 return JsonResponse({'status': 'ok'})
 
             # 3. Handle Media (Photos/Videos) vs Text
@@ -126,11 +129,17 @@ def admin_approve_account(request):
             if action == 'approve':
                 account.status = 'approved'
                 account.save()
-                send_telegram_message(chat_id, "🎉 Your account has been approved! You can now use the Influencer Studio bot.")
+                
+                # If they provided a custom bot token, we need to register the webhook for that specific bot
+                if account.bot_token:
+                    webhook_url = f"https://influencerai.nftforger.com/api/telegram/webhook/{account.telegram_chat_id}/"
+                    requests.get(f"https://api.telegram.org/bot{account.bot_token}/setWebhook?url={webhook_url}")
+                    
+                send_telegram_message(chat_id, "🎉 Your account has been approved! You can now use your Influencer Studio bot.", custom_bot_token=account.bot_token)
             elif action == 'reject':
                 account.status = 'rejected'
                 account.save()
-                send_telegram_message(chat_id, "❌ Your account access request has been declined.")
+                send_telegram_message(chat_id, "❌ Your account access request has been declined.", custom_bot_token=account.bot_token)
                 
             return JsonResponse({'status': 'success'})
         except Exception as e:
@@ -142,8 +151,8 @@ def admin_approve_account(request):
 import os
 import requests
 
-def send_telegram_message(chat_id, text):
-    token = os.environ.get("TELEGRAM_BOT_TOKEN")
+def send_telegram_message(chat_id, text, custom_bot_token=None):
+    token = custom_bot_token if custom_bot_token else os.environ.get("TELEGRAM_BOT_TOKEN")
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     requests.post(url, json={"chat_id": chat_id, "text": text})
 

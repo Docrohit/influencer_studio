@@ -1,11 +1,46 @@
 import random
+import requests
 from django.shortcuts import render, redirect
 from django.utils import timezone
 from datetime import timedelta
 from .models import Account, WebOTP, MediaAsset
 from .tasks import send_telegram_message
 
+def register_view(request):
+    """
+    Allow users to input their Chat ID and their custom Bot Token.
+    Triggers approval flow to the Admin.
+    """
+    if request.method == 'POST':
+        chat_id = request.POST.get('chat_id')
+        bot_token = request.POST.get('bot_token')
+        
+        # Create or update account
+        account, created = Account.objects.get_or_create(
+            telegram_chat_id=chat_id,
+            defaults={'bot_token': bot_token, 'status': 'pending'}
+        )
+        
+        # If it already existed but they are updating the token
+        if not created:
+            account.bot_token = bot_token
+            account.status = 'pending'
+            account.save()
+            
+        # Ping Admin for approval
+        from .views import trigger_admin_approval_request
+        trigger_admin_approval_request(account)
+        
+        return render(request, 'studio/register.html', {
+            'message': 'Success! Your request has been sent to the admin. Once approved, your bot will be automatically linked.'
+        })
+
+    return render(request, 'studio/register.html')
+
 def generate_otp():
+    return str(random.randint(100000, 999999))
+
+def login_view(request):
     return str(random.randint(100000, 999999))
 
 def login_view(request):

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - Influencer Studio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white h-screen flex items-center justify-center">
+    <div class="bg-gray-800 p-8 rounded-lg shadow-xl w-[28rem]">
+        <h1 class="text-2xl font-bold mb-2 text-center text-purple-400">Join Influencer Studio</h1>
+        <p class="text-sm text-gray-400 text-center mb-6">Create your own bot via @BotFather and connect it here.</p>
+        
+        {% if message %}
+        <div class="bg-green-500/20 text-green-400 p-3 rounded mb-4 text-sm text-center">
+            {{ message }}
+        </div>
+        {% endif %}
+        {% if error %}
+        <div class="bg-red-500/20 text-red-400 p-3 rounded mb-4 text-sm text-center">
+            {{ error }}
+        </div>
+        {% endif %}
+
+        <form method="POST" action="">
+            {% csrf_token %}
+            <div class="mb-4">
+                <label class="block text-gray-400 text-sm mb-2" for="chat_id">Your Telegram Chat ID</label>
+                <input class="w-full bg-gray-700 border border-gray-600 rounded p-3 text-white focus:outline-none focus:border-purple-500" 
+                       type="text" id="chat_id" name="chat_id" placeholder="e.g. 123456789" required>
+            </div>
+            <div class="mb-6">
+                <label class="block text-gray-400 text-sm mb-2" for="bot_token">Your Telegram Bot Token</label>
+                <input class="w-full bg-gray-700 border border-gray-600 rounded p-3 text-white focus:outline-none focus:border-purple-500" 
+                       type="text" id="bot_token" name="bot_token" placeholder="123456:ABC-DEF..." required>
+            </div>
+            <button class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded transition duration-200" type="submit">
+                Request Access
+            </button>
+        </form>
+        <p class="text-xs text-gray-500 mt-4 text-center">Admin approval is required to activate your bot.</p>
+        <div class="mt-4 text-center">
+            <a href="/" class="text-purple-400 hover:text-purple-300 text-sm">Already approved? Log in here.</a>
+        </div>
+    </div>
+</body>
+</html>
