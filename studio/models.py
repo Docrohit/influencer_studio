@@ -2,7 +2,7 @@ from django.db import models
 from django.utils import timezone
 import uuid
 
-class Account(models.fields.Model):
+class Account(models.Model):
     """
     Represents a tenant/creator using the Telegram bot.
     Approvals are managed via the central YouTube Approvals Bot.
