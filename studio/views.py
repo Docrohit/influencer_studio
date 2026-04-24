@@ -158,12 +158,18 @@ def send_telegram_message(chat_id, text, custom_bot_token=None):
 
 def trigger_admin_approval_request(account):
     """
-    Sends a ping to the central Approvals Bot to accept/reject this new user.
+    Sends a webhook to n8n to trigger the YouTube Approvals Bot flow.
     """
-    # Assuming standard integration where we notify your admin chat
-    admin_chat_id = os.environ.get("APPROVAL_CHAT_ID")
-    token = os.environ.get("APPROVAL_BOT_TOKEN")
-    if admin_chat_id and token:
-        msg = f"🔔 *New Influencer Studio Request*\nUser: @{account.telegram_username}\nChat ID: `{account.telegram_chat_id}`\nAction required: /approve_{account.telegram_chat_id}"
-        url = f"https://api.telegram.org/bot{token}/sendMessage"
-        requests.post(url, json={"chat_id": admin_chat_id, "text": msg, "parse_mode": "Markdown"})
+    # Using the n8n webhook URL from your moral stories setup or the new one
+    n8n_webhook_url = os.environ.get("N8N_APPROVAL_WEBHOOK_URL", "https://n8n.nftforger.com/webhook/influencer-approval")
+    
+    payload = {
+        "username": account.telegram_username or "Unknown",
+        "chat_id": account.telegram_chat_id,
+        "app_name": "Influencer Studio"
+    }
+    
+    try:
+        requests.post(n8n_webhook_url, json=payload, timeout=5)
+    except Exception as e:
+        print(f"Failed to trigger n8n approval webhook: {e}")
