@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify OTP - Influencer Studio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white h-screen flex items-center justify-center">
+    <div class="bg-gray-800 p-8 rounded-lg shadow-xl w-96">
+        <h1 class="text-2xl font-bold mb-2 text-center text-purple-400">Verify Identity</h1>
+        <p class="text-sm text-gray-400 text-center mb-6">Code sent to Telegram ({{ chat_id }})</p>
+        
+        {% if error %}
+        <div class="bg-red-500/20 text-red-400 p-3 rounded mb-4 text-sm text-center">
+            {{ error }}
+        </div>
+        {% endif %}
+
+        <form method="POST" action="">
+            {% csrf_token %}
+            <div class="mb-6">
+                <input class="w-full bg-gray-700 border border-gray-600 rounded p-4 text-center text-2xl tracking-widest text-white focus:outline-none focus:border-purple-500" 
+                       type="text" id="otp" name="otp" placeholder="••••••" maxlength="6" required>
+            </div>
+            <button class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded transition duration-200" type="submit">
+                Access Dashboard
+            </button>
+        </form>
+    </div>
+</body>
+</html>

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Influencer Studio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-gray-200 min-h-screen">
+    
+    <!-- Navbar -->
+    <nav class="bg-gray-800 border-b border-gray-700 p-4 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <span class="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">Influencer Studio</span>
+            </div>
+            <div class="flex items-center space-x-4">
+                <span class="text-sm text-gray-400">@{{ account.telegram_username }}</span>
+                <a href="/logout" class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded text-sm transition">Logout</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto p-6">
+        
+        <!-- Active Influencer Profile -->
+        <div class="bg-gray-800 rounded-xl p-6 mb-8 shadow-lg flex items-center space-x-6 border border-gray-700">
+            {% if influencer and influencer.base_image_url_1 %}
+                <img src="{{ influencer.base_image_url_1 }}" alt="{{ influencer.name }}" class="w-32 h-32 rounded-full object-cover border-4 border-purple-500">
+            {% else %}
+                <div class="w-32 h-32 rounded-full bg-gray-700 flex items-center justify-center border-4 border-gray-600">
+                    <span class="text-gray-500">No Image</span>
+                </div>
+            {% endif %}
+            
+            <div>
+                <h2 class="text-3xl font-bold text-white mb-2">{{ influencer.name|default:"No Active Influencer" }}</h2>
+                <div class="flex flex-wrap gap-2 mt-2">
+                    {% if influencer.traits %}
+                        {% for key, value in influencer.traits.items %}
+                            <span class="px-3 py-1 bg-gray-700 text-xs rounded-full text-purple-300">{{ key }}: {{ value }}</span>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-gray-400 text-sm">Send a photo to the Telegram bot and say "Use this and save her as Maaya" to create an influencer.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Creations Gallery -->
+        <h3 class="text-xl font-bold text-white mb-6 flex items-center">
+            <svg class="w-6 h-6 mr-2 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+            Recent Generations
+        </h3>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {% for asset in assets %}
+            <div class="bg-gray-800 rounded-xl overflow-hidden shadow-lg border border-gray-700 group hover:border-purple-500 transition">
+                <!-- Media Display -->
+                <div class="aspect-[9/16] bg-gray-900 relative">
+                    {% if asset.media_type == 'image' %}
+                        <img src="{{ asset.output_url }}" class="w-full h-full object-cover" alt="Generated Image">
+                    {% elif asset.media_type == 'video' %}
+                        <video src="{{ asset.output_url }}" class="w-full h-full object-cover" controls loop muted autoplay></video>
+                    {% endif %}
+                    
+                    <!-- Status Badge -->
+                    {% if asset.status == 'processing' %}
+                        <div class="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+                            <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-purple-500"></div>
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Details -->
+                <div class="p-4">
+                    <span class="inline-block px-2 py-1 bg-purple-900/50 text-purple-300 text-xs rounded mb-2 uppercase tracking-wide">{{ asset.intent_type }}</span>
+                    <p class="text-sm text-gray-300 line-clamp-3 mb-2" title="{{ asset.user_prompt }}">"{{ asset.user_prompt }}"</p>
+                    <div class="text-xs text-gray-500 flex justify-between items-center">
+                        <span>{{ asset.created_at|date:"M d, Y" }}</span>
+                        <span>{{ asset.provider }}</span>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-span-full py-20 text-center bg-gray-800/50 rounded-xl border border-gray-700 border-dashed">
+                <svg class="mx-auto h-12 w-12 text-gray-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+                <p class="text-gray-400">No creations yet. Head to your Telegram bot to generate some scenes!</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</body>
+</html>

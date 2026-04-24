@@ -1,0 +1,9 @@
+django>=4.2,<5.0
+celery>=5.3
+redis>=5.0
+requests>=2.31
+openai>=1.14
+google-genai>=0.1
+pillow>=10.2
+python-dotenv>=1.0
+gunicorn>=21.2

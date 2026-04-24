@@ -1,0 +1,44 @@
+name: Deploy Influencer Studio
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.HOSTINGER_SSH_KEY }}
+
+      - name: Deploy to Server via rsync
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.HOSTINGER_HOST }} >> ~/.ssh/known_hosts
+          rsync -avz --delete \
+            --exclude '.git/' \
+            --exclude 'venv/' \
+            --exclude 'db.sqlite3' \
+            --exclude '.env' \
+            --exclude 'media/' \
+            ./ ${{ secrets.HOSTINGER_USER }}@${{ secrets.HOSTINGER_HOST }}:/var/www/html/influencer_studio/
+
+      - name: Restart Server Services
+        run: |
+          ssh ${{ secrets.HOSTINGER_USER }}@${{ secrets.HOSTINGER_HOST }} << 'EOF'
+            cd /var/www/html/influencer_studio
+            python3 -m venv venv
+            source venv/bin/activate
+            pip install -r requirements.txt
+            python manage.py makemigrations studio
+            python manage.py migrate
+            python manage.py collectstatic --noinput
+            systemctl restart influencer-studio.service
+            systemctl restart influencer-studio-celery.service
+          EOF

@@ -1,0 +1,121 @@
+{
+  "name": "Influencer Studio - Admin Approval Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "influencer-approval",
+        "options": {}
+      },
+      "id": "e987c6b5-1234-5678-abcd-1234567890ab",
+      "name": "Webhook (From Django)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_ADMIN_CHAT_ID",
+        "text": "=New Influencer Studio Request from @{{$json.body.username}} (ID: {{$json.body.chat_id}})",
+        "replyMarkup": "inlineKeyboard",
+        "inlineKeyboard": {
+          "rows": [
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "✅ Approve",
+                    "callbackData": "=approve_{{$json.body.chat_id}}"
+                  },
+                  {
+                    "text": "❌ Reject",
+                    "callbackData": "=reject_{{$json.body.chat_id}}"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "id": "telegram-node-id",
+      "name": "Telegram (To Admin)",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [450, 300],
+      "credentials": {
+        "telegramApi": {
+          "id": "telegram-creds-id",
+          "name": "Telegram Bot API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "updates": [
+          "callback_query"
+        ],
+        "additionalFields": {}
+      },
+      "id": "telegram-trigger-id",
+      "name": "Telegram Trigger (Admin Click)",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1,
+      "position": [250, 500],
+      "credentials": {
+        "telegramApi": {
+          "id": "telegram-creds-id",
+          "name": "Telegram Bot API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://your-django-server.com/api/admin/approval/",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "chat_id",
+              "value": "={{$json.callback_query.data.split('_')[1]}}"
+            },
+            {
+              "name": "action",
+              "value": "={{$json.callback_query.data.split('_')[0]}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-request-id",
+      "name": "HTTP Request (Back to Django)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [450, 500]
+    }
+  ],
+  "connections": {
+    "Webhook (From Django)": {
+      "main": [
+        [
+          {
+            "node": "Telegram (To Admin)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Trigger (Admin Click)": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request (Back to Django)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
