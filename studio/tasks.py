@@ -1,10 +1,65 @@
 from celery import shared_task
 import os
 import requests
+from django.utils import timezone
 from .models import Account, Influencer, MediaAsset
 from .llm_parser import parse_influencer_intent
 from .gemini_service import create_scene_with_character, apply_reference_style
 from .kling_service import generate_image2video, generate_motion_control
+
+
+def _missing_key_message(provider_label):
+    return (
+        f"⚠️ Missing {provider_label} key on your account. "
+        "Log in at influencerai.nftforger.com and add your API keys on the login form, then try again."
+    )
+
+
+def _subscription_required_message():
+    return (
+        "⚠️ Your subscription is not active. Renew in billing: "
+        "https://influencerai.nftforger.com/billing/"
+    )
+
+
+def _sync_expired_status(account):
+    if account.status == 'approved' and (
+        account.subscription_paid_until is None or account.subscription_paid_until <= timezone.now()
+    ):
+        account.status = 'expired'
+        account.save(update_fields=['status'])
+
+
+def _resolve_provider_key(account, account_field, env_fallback_name):
+    _sync_expired_status(account)
+
+    if account.status != 'approved' or not account.is_subscription_active():
+        return None, _subscription_required_message()
+
+    if account.key_mode == 'platform_keys':
+        value = os.environ.get(env_fallback_name)
+        if not value and env_fallback_name == 'GEMINI_API_KEY':
+            value = os.environ.get('NANO_BANANA_API_KEY')
+        if not value and env_fallback_name == 'KLING_API_TOKEN':
+            kling_access = os.environ.get('KLING_ACCESS_KEY')
+            kling_secret = os.environ.get('KLING_SECRET_KEY')
+            if kling_access and kling_secret:
+                value = f"{kling_access}:{kling_secret}"
+        if not value:
+            return None, f"⚠️ Platform provider key missing on server for {env_fallback_name}."
+        return value, None
+
+    value = getattr(account, account_field)
+    if not value:
+        label_map = {
+            'openai_api_key': 'OpenAI API',
+            'gemini_api_key': 'Gemini API',
+            'kling_api_token': 'Kling API',
+            'elevenlabs_api_key': 'ElevenLabs API',
+        }
+        readable = label_map.get(account_field, account_field)
+        return None, _missing_key_message(readable)
+    return value, None
 
 def get_telegram_file_url(file_id):
     """Fetches the actual download URL for a Telegram file ID."""
@@ -39,11 +94,11 @@ def apply_voiceover_and_send(asset_id, video_url):
     import subprocess
     import urllib.request
     from .voice_service import generate_voiceover
-    from django.conf import settings
     
     asset = MediaAsset.objects.get(id=asset_id)
+    account = asset.influencer.account
     chat_id = asset.influencer.account.telegram_chat_id
-    
+
     send_telegram_message(chat_id, "🎙️ Video ready! Applying ElevenLabs Voiceover...")
     
     temp_dir = "/tmp"
@@ -56,7 +111,13 @@ def apply_voiceover_and_send(asset_id, video_url):
         urllib.request.urlretrieve(video_url, raw_vid)
         
         # Generate Audio
-        generate_voiceover(asset.narration_text, audio)
+        elevenlabs_key, key_error = _resolve_provider_key(account, 'elevenlabs_api_key', 'ELEVENLABS_API_KEY')
+        if key_error:
+            send_telegram_message(chat_id, key_error)
+            send_telegram_message(chat_id, f"Here is the silent video instead: {video_url}")
+            return
+
+        generate_voiceover(asset.narration_text, audio, api_key=elevenlabs_key)
         
         # Merge via FFmpeg
         cmd = [
@@ -84,6 +145,11 @@ def process_telegram_intent(chat_id, account_id, user_input, file_id=None, media
     and calls Gemini or Kling to fulfill the user's request.
     """
     account = Account.objects.get(id=account_id)
+
+    _sync_expired_status(account)
+    if account.status != 'approved' or not account.is_subscription_active():
+        send_telegram_message(chat_id, _subscription_required_message())
+        return
     
     # Notify user we are thinking
     send_telegram_message(chat_id, "🧠 Analyzing your request...")
@@ -96,8 +162,21 @@ def process_telegram_intent(chat_id, account_id, user_input, file_id=None, media
     if file_id:
         media_url = get_telegram_file_url(file_id)
 
-    # Parse Intent
-    parsed_intent = parse_influencer_intent(user_input, has_photo, has_video)
+    openai_key, key_error = _resolve_provider_key(account, 'openai_api_key', 'OPENAI_API_KEY')
+    if key_error:
+        send_telegram_message(chat_id, key_error)
+        return
+
+    try:
+        parsed_intent = parse_influencer_intent(
+            user_input,
+            has_photo,
+            has_video,
+            openai_api_key=openai_key,
+        )
+    except Exception as e:
+        send_telegram_message(chat_id, f"❌ Failed to parse your request: {e}")
+        return
     intent = parsed_intent.get('intent')
     enhanced_prompt = parsed_intent.get('enhanced_prompt', user_input)
     influencer_name = parsed_intent.get('influencer_name') or f"Influencer_{account.telegram_username}"
@@ -157,7 +236,12 @@ def process_telegram_intent(chat_id, account_id, user_input, file_id=None, media
         try:
             # Fake save path for architecture demonstration
             local_path = "/tmp/base_image.jpg" 
-            images = create_scene_with_character([local_path], enhanced_prompt)
+            gemini_key, key_error = _resolve_provider_key(account, 'gemini_api_key', 'GEMINI_API_KEY')
+            if key_error:
+                send_telegram_message(chat_id, key_error)
+                return
+
+            images = create_scene_with_character([local_path], enhanced_prompt, api_key=gemini_key)
             if images:
                 output_path = f"/tmp/generated_{account_id}.png"
                 images[0].save(output_path)
@@ -170,12 +254,30 @@ def process_telegram_intent(chat_id, account_id, user_input, file_id=None, media
         if not has_photo:
             send_telegram_message(chat_id, "⚠️ You must attach a reference photo (clothes, pose, etc.) for this command.")
             return
+        gemini_key, key_error = _resolve_provider_key(account, 'gemini_api_key', 'GEMINI_API_KEY')
+        if key_error:
+            send_telegram_message(chat_id, key_error)
+            return
             
         send_telegram_message(chat_id, "👗 Applying reference style to your influencer...")
         # Implementation calls apply_reference_style() in gemini_service
 
     elif intent == 'TURN_TO_VIDEO':
         influencer = account.influencers.filter(is_active=True).first()
+        kling_key, key_error = _resolve_provider_key(account, 'kling_api_token', 'KLING_API_TOKEN')
+        if key_error:
+            send_telegram_message(chat_id, key_error)
+            return
+
+        if narration_text:
+            elevenlabs_key, key_error = _resolve_provider_key(account, 'elevenlabs_api_key', 'ELEVENLABS_API_KEY')
+            if key_error:
+                send_telegram_message(chat_id, key_error)
+                return
+
+        if not influencer:
+            send_telegram_message(chat_id, "⚠️ You need to create an influencer first by uploading a photo.")
+            return
         
         # Save intent as a MediaAsset to track status and narration
         asset = MediaAsset.objects.create(

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Billing - Influencer Studio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen flex items-center justify-center py-10 px-4">
+    <div class="bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-2xl">
+        <h1 class="text-2xl font-bold mb-2 text-center text-purple-400">Lightning Billing</h1>
+        <p class="text-sm text-gray-400 text-center mb-6">Pay with Bitcoin Lightning, upload receipt, and get auto-approved for {{ subscription_days|default:30 }} days.</p>
+
+        {% if message %}
+        <div class="bg-green-500/20 text-green-400 p-3 rounded mb-4 text-sm text-center">
+            {{ message }}
+        </div>
+        {% endif %}
+
+        {% if error %}
+        <div class="bg-red-500/20 text-red-400 p-3 rounded mb-4 text-sm text-center">
+            {{ error }}
+        </div>
+        {% endif %}
+
+        <div class="mb-6 rounded border border-gray-700 bg-gray-900/40 p-4">
+            <p class="text-sm text-gray-300 mb-2">Send sats to:</p>
+            <p class="text-sm font-semibold text-white break-all">{{ payment_payee }}</p>
+            {% if ln_invoice %}
+            <p class="text-xs text-gray-500 mt-3">Wallet of Satoshi invoice (you can share/use this QR):</p>
+            <p class="text-xs text-gray-300 mt-1 break-all">{{ ln_invoice }}</p>
+            {% endif %}
+            {% if ln_qr_image_url %}
+            <img src="{{ ln_qr_image_url }}" alt="Lightning Payment QR" class="mt-4 w-52 h-52 object-contain rounded bg-white p-2">
+            {% endif %}
+        </div>
+
+        <div class="mb-4 rounded border border-gray-700 bg-gray-900/40 p-4">
+            <p class="text-sm font-semibold text-gray-300 mb-3">Payment method</p>
+            <label class="flex items-start gap-2 mb-3 cursor-pointer">
+                <input type="radio" name="payment_method" value="lightning" form="billing-form" class="mt-1" {% if selected_payment_method == 'lightning' or not selected_payment_method %}checked{% endif %}>
+                <span class="text-sm text-gray-300">Lightning receipt (auto-verified)</span>
+            </label>
+            <label class="flex items-start gap-2 cursor-pointer">
+                <input type="radio" name="payment_method" value="cash" form="billing-form" class="mt-1" {% if selected_payment_method == 'cash' %}checked{% endif %}>
+                <span class="text-sm text-gray-300">Paid in cash (admin approval)</span>
+            </label>
+        </div>
+
+        <form method="POST" enctype="multipart/form-data" action="" id="billing-form">
+            {% csrf_token %}
+
+            <div class="mb-4">
+                <label class="block text-gray-400 text-sm mb-2" for="chat_id">Telegram Chat ID</label>
+                <input class="w-full bg-gray-700 border border-gray-600 rounded p-3 text-white focus:outline-none focus:border-purple-500"
+                       type="text" id="chat_id" name="chat_id" value="{{ chat_id }}" placeholder="e.g. 123456789" required>
+            </div>
+
+            <div class="mb-4 rounded border border-gray-700 bg-gray-900/40 p-4">
+                <p class="text-sm font-semibold text-gray-300 mb-3">Choose subscription</p>
+                <label class="flex items-start gap-2 mb-3 cursor-pointer">
+                    <input type="radio" name="key_mode" value="platform_keys" class="mt-1" {% if selected_key_mode == 'platform_keys' %}checked{% endif %}>
+                    <span class="text-sm text-gray-300">Use platform keys - {{ platform_price_sats|default:70000 }} sats / month</span>
+                </label>
+                <label class="flex items-start gap-2 cursor-pointer">
+                    <input type="radio" name="key_mode" value="own_keys" class="mt-1" {% if selected_key_mode == 'own_keys' %}checked{% endif %}>
+                    <span class="text-sm text-gray-300">Use own keys - {{ own_price_sats|default:10000 }} sats / month</span>
+                </label>
+            </div>
+
+            <div class="mb-6">
+                <label class="block text-gray-400 text-sm mb-2" for="lightning_address">Optional: Your Lightning address</label>
+                <input class="w-full bg-gray-700 border border-gray-600 rounded p-3 text-white focus:outline-none focus:border-purple-500"
+                       type="text" id="lightning_address" name="lightning_address" value="{{ lightning_address }}" placeholder="name@walletofsatoshi.com">
+            </div>
+
+            <div class="mb-6">
+                <label class="block text-gray-400 text-sm mb-2" for="wallet_connect_uri">Optional: Wallet connect URI (NWC)</label>
+                <input class="w-full bg-gray-700 border border-gray-600 rounded p-3 text-white focus:outline-none focus:border-purple-500"
+                       type="text" id="wallet_connect_uri" name="wallet_connect_uri" value="{{ wallet_connect_uri }}" placeholder="nostr+walletconnect://...">
+            </div>
+
+            <div class="mb-6" id="receipt-block">
+                <label class="block text-gray-400 text-sm mb-2" for="receipt_image">Upload payment receipt screenshot</label>
+                <input class="w-full bg-gray-700 border border-gray-600 rounded p-3 text-white focus:outline-none focus:border-purple-500"
+                        type="file" id="receipt_image" name="receipt_image" accept="image/*" required>
+            </div>
+
+            <button class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded transition duration-200" type="submit">
+                Verify Payment & Activate
+            </button>
+        </form>
+
+        <p class="text-xs text-gray-500 mt-4 text-center">Gemini checks your screenshot for successful Lightning transfer, payee match, and sats amount.</p>
+        <div class="mt-4 text-center">
+            <a href="/" class="text-purple-400 hover:text-purple-300 text-sm">Back to login</a>
+        </div>
+    </div>
+    <script>
+        (function () {
+            var methodInputs = document.querySelectorAll('input[name="payment_method"]');
+            var receiptBlock = document.getElementById('receipt-block');
+            var receiptInput = document.getElementById('receipt_image');
+
+            function updateReceiptUI() {
+                var selected = document.querySelector('input[name="payment_method"]:checked');
+                var isLightning = !selected || selected.value === 'lightning';
+                if (receiptBlock) {
+                    receiptBlock.style.display = isLightning ? '' : 'none';
+                }
+                if (receiptInput) {
+                    receiptInput.required = isLightning;
+                }
+            }
+
+            methodInputs.forEach(function (input) {
+                input.addEventListener('change', updateReceiptUI);
+            });
+            updateReceiptUI();
+        })();
+    </script>
+</body>
+</html>

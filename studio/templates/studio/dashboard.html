@@ -22,6 +22,20 @@
     </nav>
 
     <div class="max-w-7xl mx-auto p-6">
+
+        <div class="bg-gray-800 rounded-xl p-4 mb-6 border border-gray-700">
+            <div class="flex flex-wrap items-center gap-3 text-sm">
+                <span class="text-gray-300 font-semibold">Provider keys:</span>
+                <span class="px-2 py-1 rounded bg-gray-700 text-gray-200">Plan: {{ account.key_mode }}</span>
+                <span class="px-2 py-1 rounded bg-gray-700 text-gray-200">Valid till: {% if account.subscription_paid_until %}{{ account.subscription_paid_until|date:"M d, Y H:i" }} UTC{% else %}Not active{% endif %}</span>
+                <span class="px-2 py-1 rounded bg-gray-700 text-gray-200">OpenAI: {% if account.openai_api_key %}Connected{% else %}Missing{% endif %}</span>
+                <span class="px-2 py-1 rounded bg-gray-700 text-gray-200">Gemini: {% if account.gemini_api_key %}Connected{% else %}Missing{% endif %}</span>
+                <span class="px-2 py-1 rounded bg-gray-700 text-gray-200">Kling: {% if account.kling_api_token %}Connected{% else %}Missing{% endif %}</span>
+                <span class="px-2 py-1 rounded bg-gray-700 text-gray-200">ElevenLabs: {% if account.elevenlabs_api_key %}Connected{% else %}Missing{% endif %}</span>
+                <span class="px-2 py-1 rounded bg-gray-700 text-gray-200">Wallet: {% if account.lightning_address %}{{ account.lightning_address }}{% else %}Not linked{% endif %}</span>
+            </div>
+            <p class="text-xs text-gray-500 mt-3">Pricing: platform keys {{ platform_price_sats|default:70000 }} sats/month, own keys {{ own_price_sats|default:10000 }} sats/month. To renew or switch plan, use <a href="/billing?chat_id={{ account.telegram_chat_id }}&key_mode={{ account.key_mode }}" class="text-purple-400 hover:text-purple-300">billing</a>.</p>
+        </div>
         
         <!-- Active Influencer Profile -->
         <div class="bg-gray-800 rounded-xl p-6 mb-8 shadow-lg flex items-center space-x-6 border border-gray-700">

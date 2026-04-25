@@ -1,7 +1,10 @@
 import os
 from pathlib import Path
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / '.env')
+
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'dev-secret-key-123')
 DEBUG = True
 ALLOWED_HOSTS = ['*']
@@ -59,6 +62,16 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = 'static/'
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+PLATFORM_KEYS_PRICE_SATS = int(os.environ.get('PLATFORM_KEYS_PRICE_SATS', '70000'))
+OWN_KEYS_PRICE_SATS = int(os.environ.get('OWN_KEYS_PRICE_SATS', '10000'))
+SUBSCRIPTION_DURATION_DAYS = int(os.environ.get('SUBSCRIPTION_DURATION_DAYS', '30'))
+PLATFORM_PAYMENT_PAYEE = os.environ.get('PLATFORM_PAYMENT_PAYEE', 'wallet of satoshi')
+PLATFORM_LN_INVOICE = os.environ.get('PLATFORM_LN_INVOICE', '')
+PLATFORM_LN_QR_IMAGE_URL = os.environ.get('PLATFORM_LN_QR_IMAGE_URL', '')
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CELERY_BROKER_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')

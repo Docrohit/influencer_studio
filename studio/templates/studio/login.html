@@ -6,8 +6,8 @@
     <title>Login - Influencer Studio</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-900 text-white h-screen flex items-center justify-center">
-    <div class="bg-gray-800 p-8 rounded-lg shadow-xl w-96">
+<body class="bg-gray-900 text-white min-h-screen flex items-center justify-center py-8">
+    <div class="bg-gray-800 p-8 rounded-lg shadow-xl w-[30rem]">
         <h1 class="text-2xl font-bold mb-6 text-center text-purple-400">Influencer Studio</h1>
         
         {% if error %}
@@ -21,13 +21,15 @@
             <div class="mb-4">
                 <label class="block text-gray-400 text-sm mb-2" for="chat_id">Telegram Chat ID</label>
                 <input class="w-full bg-gray-700 border border-gray-600 rounded p-3 text-white focus:outline-none focus:border-purple-500" 
-                       type="text" id="chat_id" name="chat_id" placeholder="e.g. 123456789" required>
+                       type="text" id="chat_id" name="chat_id" value="{{ chat_id|default:'' }}" placeholder="e.g. 123456789" required>
             </div>
             <button class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded transition duration-200" type="submit">
                 Send Login Code
             </button>
         </form>
-        <p class="text-xs text-gray-500 mt-4 text-center">We will send a 6-digit OTP to your Telegram bot.</p>
+        <p class="text-xs text-gray-500 mt-4 text-center">We will send a 6-digit OTP to your Telegram bot (active subscription required).</p>
+        <p class="text-xs text-gray-500 mt-2 text-center">Need to subscribe or renew? <a href="/billing" class="text-purple-400 hover:text-purple-300">Open billing page</a>.</p>
+        <p class="text-xs text-center mt-3"><a href="/register" class="text-purple-400 hover:text-purple-300">Need approval first? Register your account here.</a></p>
     </div>
 </body>
 </html>

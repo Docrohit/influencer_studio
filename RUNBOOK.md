@@ -9,7 +9,7 @@ Create a `.env` file in the `influencer_studio` root directory (next to `manage.
 OPENAI_API_KEY="sk-..."
 GEMINI_API_KEY="AIza..."
 KLING_API_TOKEN="ey..."
-ELEVENLABS_API_KEY="sk_d3bd0076eaaec57aa2951f13b6b0fbc53c52802d20d58e6d"
+ELEVENLABS_API_KEY="sk_..."
 
 # Telegram Bots
 TELEGRAM_BOT_TOKEN="123456789:ABCdefGHIjkl..."
@@ -19,6 +19,14 @@ APPROVAL_CHAT_ID="your_admin_chat_id"
 # Django settings
 DJANGO_SECRET_KEY="your-secret-key"
 DEBUG=True
+
+# Lightning billing
+PLATFORM_KEYS_PRICE_SATS=70000
+OWN_KEYS_PRICE_SATS=10000
+SUBSCRIPTION_DURATION_DAYS=30
+PLATFORM_PAYMENT_PAYEE="yourname@walletofsatoshi.com"
+PLATFORM_LN_INVOICE="lnbc..."  # optional
+PLATFORM_LN_QR_IMAGE_URL="https://..."  # optional
 ```
 
 ## 2. Dependencies

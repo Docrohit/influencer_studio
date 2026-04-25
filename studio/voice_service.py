@@ -1,9 +1,10 @@
-import os
 import requests
 
-def generate_voiceover(text, output_path):
+def generate_voiceover(text, output_path, api_key=None):
     """Generates TTS using ElevenLabs and saves to output_path"""
-    api_key = os.environ.get("ELEVENLABS_API_KEY", "sk_d3bd0076eaaec57aa2951f13b6b0fbc53c52802d20d58e6d")
+    if not api_key:
+        raise ValueError("Missing ElevenLabs API key for this account.")
+
     voice_id = "21m00Tcm4TlvDq8ikWAM" # Rachel (default pleasant voice)
     url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
     

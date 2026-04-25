@@ -11,6 +11,7 @@ urlpatterns = [
     # Web Dashboard
     path('', dashboard_views.login_view, name='login'),
     path('register/', dashboard_views.register_view, name='register'),
+    path('billing/', dashboard_views.billing_view, name='billing'),
     path('verify/', dashboard_views.verify_otp_view, name='verify_otp'),
     path('dashboard/', dashboard_views.dashboard_view, name='dashboard'),
     path('logout/', dashboard_views.logout_view, name='logout'),

@@ -1,6 +1,9 @@
 import json
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.utils import timezone
+from datetime import timedelta
+from django.conf import settings
 from .models import Account
 from .tasks import process_telegram_intent
 
@@ -32,10 +35,23 @@ def telegram_webhook(request, custom_chat_id=None):
             # The token to reply with is their own custom bot token if they have one
             reply_token = account.bot_token if account.bot_token else None
 
+            if account.status == 'approved' and (
+                account.subscription_paid_until is None or account.subscription_paid_until <= timezone.now()
+            ):
+                account.status = 'expired'
+                account.save(update_fields=['status'])
+
             # 2. Check Approval Status
             if account.status == 'pending':
                 send_telegram_message(chat_id, "⏳ Your account is pending approval from the admin.", custom_bot_token=reply_token)
                 trigger_admin_approval_request(account)
+                return JsonResponse({'status': 'ok'})
+            elif account.status == 'expired':
+                send_telegram_message(
+                    chat_id,
+                    "💳 Your subscription expired. Renew here: https://influencerai.nftforger.com/billing/",
+                    custom_bot_token=reply_token,
+                )
                 return JsonResponse({'status': 'ok'})
             elif account.status == 'rejected':
                 send_telegram_message(chat_id, "❌ Your access request was denied.", custom_bot_token=reply_token)
@@ -127,15 +143,36 @@ def admin_approve_account(request):
             account = Account.objects.get(telegram_chat_id=chat_id)
             
             if action == 'approve':
+                now = timezone.now()
+                previous_status = account.status
+                previous_expiry = account.subscription_paid_until
                 account.status = 'approved'
-                account.save()
+                update_fields = ['status']
+
+                should_extend = (
+                    previous_status in ('expired', 'pending')
+                    and previous_expiry is not None
+                    and previous_expiry <= now
+                )
+                if should_extend:
+                    account.subscription_paid_until = now + timedelta(days=int(getattr(settings, 'SUBSCRIPTION_DURATION_DAYS', 30)))
+                    update_fields.append('subscription_paid_until')
+
+                account.save(update_fields=update_fields)
                 
                 # If they provided a custom bot token, we need to register the webhook for that specific bot
                 if account.bot_token:
                     webhook_url = f"https://influencerai.nftforger.com/api/telegram/webhook/{account.telegram_chat_id}/"
                     requests.get(f"https://api.telegram.org/bot{account.bot_token}/setWebhook?url={webhook_url}")
                     
-                send_telegram_message(chat_id, "🎉 Your account has been approved! You can now use your Influencer Studio bot.", custom_bot_token=account.bot_token)
+                if should_extend and account.subscription_paid_until:
+                    send_telegram_message(
+                        chat_id,
+                        f"🎉 Your account has been approved! Subscription active until {account.subscription_paid_until.strftime('%Y-%m-%d %H:%M UTC')}.",
+                        custom_bot_token=account.bot_token,
+                    )
+                else:
+                    send_telegram_message(chat_id, "🎉 Your account has been approved! You can now use your Influencer Studio bot.", custom_bot_token=account.bot_token)
             elif action == 'reject':
                 account.status = 'rejected'
                 account.save()
@@ -156,7 +193,7 @@ def send_telegram_message(chat_id, text, custom_bot_token=None):
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     requests.post(url, json={"chat_id": chat_id, "text": text})
 
-def trigger_admin_approval_request(account):
+def trigger_admin_approval_request(account, extra_payload=None):
     """
     Sends a webhook to n8n to trigger the YouTube Approvals Bot flow.
     """
@@ -166,8 +203,11 @@ def trigger_admin_approval_request(account):
     payload = {
         "username": account.telegram_username or "Unknown",
         "chat_id": account.telegram_chat_id,
-        "app_name": "Influencer Studio"
+        "app_name": "Influencer Studio",
+        "key_mode": getattr(account, 'key_mode', ''),
     }
+    if extra_payload:
+        payload.update(extra_payload)
     
     try:
         requests.post(n8n_webhook_url, json=payload, timeout=5)

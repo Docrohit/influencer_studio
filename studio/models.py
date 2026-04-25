@@ -10,17 +10,42 @@ class Account(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Pending Approval'),
         ('approved', 'Approved'),
+        ('expired', 'Disapproved (Expired)'),
         ('rejected', 'Rejected'),
+    ]
+
+    KEY_MODE_CHOICES = [
+        ('own_keys', 'Use Own Keys'),
+        ('platform_keys', 'Use Platform Keys'),
     ]
 
     telegram_chat_id = models.CharField(max_length=100, unique=True)
     telegram_username = models.CharField(max_length=100, null=True, blank=True)
     bot_token = models.CharField(max_length=255, null=True, blank=True, help_text="Custom bot token if they bring their own bot")
+    openai_api_key = models.CharField(max_length=255, null=True, blank=True)
+    gemini_api_key = models.CharField(max_length=255, null=True, blank=True)
+    kling_api_token = models.CharField(max_length=255, null=True, blank=True)
+    elevenlabs_api_key = models.CharField(max_length=255, null=True, blank=True)
+    lightning_address = models.CharField(max_length=255, null=True, blank=True)
+    wallet_connect_uri = models.CharField(max_length=1000, null=True, blank=True)
+    key_mode = models.CharField(max_length=20, choices=KEY_MODE_CHOICES, default='own_keys')
+    subscription_paid_until = models.DateTimeField(null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"{self.telegram_username or self.telegram_chat_id} ({self.status})"
+
+    def is_subscription_active(self):
+        return self.subscription_paid_until is not None and self.subscription_paid_until > timezone.now()
+
+    def has_all_own_provider_keys(self):
+        return all([
+            self.openai_api_key,
+            self.gemini_api_key,
+            self.kling_api_token,
+            self.elevenlabs_api_key,
+        ])
 
 class Influencer(models.Model):
     """
@@ -91,3 +116,23 @@ class WebOTP(models.Model):
 
     def is_valid(self):
         return not self.is_used and self.expires_at > timezone.now()
+
+
+class PaymentReceipt(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending Review'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
+
+    account = models.ForeignKey(Account, on_delete=models.CASCADE, related_name='payment_receipts')
+    image = models.ImageField(upload_to='payment_receipts/')
+    sats_amount = models.PositiveIntegerField(default=0)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    analysis = models.JSONField(default=dict, blank=True)
+    reviewer_note = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"Receipt {self.id} - {self.account.telegram_chat_id} ({self.status})"

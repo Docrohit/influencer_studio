@@ -1,13 +1,15 @@
-import os
 import openai
 import json
 
-def parse_influencer_intent(user_input, has_photo=False, has_video=False):
+def parse_influencer_intent(user_input, has_photo=False, has_video=False, openai_api_key=None):
     """
     Uses OpenAI (GPT-4o or similar) to classify the user's natural language message into one of 7 intents.
     Returns the intent type, and extracted parameters (like target demographic, style, etc.)
     """
-    client = openai.Client(api_key=os.environ.get("OPENAI_API_KEY"))
+    if not openai_api_key:
+        raise ValueError("Missing OpenAI API key for this account.")
+
+    client = openai.Client(api_key=openai_api_key)
 
     system_prompt = """
     You are an intent router for an AI Influencer Studio Telegram Bot.

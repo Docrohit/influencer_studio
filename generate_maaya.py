@@ -1,7 +1,6 @@
 import os
 import sys
 import time
-import requests
 from dotenv import load_dotenv
 
 # Add the studio path
@@ -11,6 +10,9 @@ from studio.kling_service import generate_motion_control, check_task_status
 
 # Load environment variables
 load_dotenv()
+
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+KLING_API_TOKEN = os.environ.get("KLING_API_TOKEN")
 
 # --- Configurations ---
 # Please save the uploaded image of Maaya to this path, or update the path below:
@@ -31,7 +33,12 @@ def make_maaya_scene():
     )
     
     try:
-        images = create_scene_with_character([MAAYA_BASE_IMAGE], prompt, aspect_ratio="9:16")
+        images = create_scene_with_character(
+            [MAAYA_BASE_IMAGE],
+            prompt,
+            aspect_ratio="9:16",
+            api_key=GEMINI_API_KEY,
+        )
         for i, img in enumerate(images):
             output_path = f"maaya_paris_scene_{i}.png"
             img.save(output_path)
@@ -60,7 +67,8 @@ def make_maaya_motion_video():
         response = generate_motion_control(
             image_path_or_url=MAAYA_BASE_IMAGE,
             video_url=hosted_video_url, # We must pass a URL here per the docs
-            prompt="The woman is doing the exact motions from the video."
+            prompt="The woman is doing the exact motions from the video.",
+            api_token=KLING_API_TOKEN,
         )
         task_id = response['data']['task_id']
         print(f"⏳ Task submitted successfully. Task ID: {task_id}")
@@ -68,7 +76,7 @@ def make_maaya_motion_video():
         # Poll for completion
         while True:
             time.sleep(10)
-            status_res = check_task_status(task_id, task_type="motion-control")
+            status_res = check_task_status(task_id, task_type="motion-control", api_token=KLING_API_TOKEN)
             status = status_res['data']['task_status']
             print(f"Task status: {status}...")
             
