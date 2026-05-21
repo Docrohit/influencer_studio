@@ -3,13 +3,13 @@ import json
 
 def parse_influencer_intent(user_input, has_photo=False, has_video=False, openai_api_key=None):
     """
-    Uses OpenAI (GPT-4o or similar) to classify the user's natural language message into one of 7 intents.
+    Uses Kimi K2.6 (OpenAI-compatible) to classify the user's natural language message into one of 7 intents.
     Returns the intent type, and extracted parameters (like target demographic, style, etc.)
     """
     if not openai_api_key:
-        raise ValueError("Missing OpenAI API key for this account.")
+        raise ValueError("Missing API key for this account.")
 
-    client = openai.Client(api_key=openai_api_key)
+    client = openai.Client(api_key=openai_api_key, base_url="https://api.moonshot.ai/v1")
 
     system_prompt = """
     You are an intent router for an AI Influencer Studio Telegram Bot.
@@ -38,7 +38,7 @@ def parse_influencer_intent(user_input, has_photo=False, has_video=False, openai
     user_context = f"User Input: '{user_input}'\nProvided Photo: {has_photo}\nProvided Video: {has_video}"
 
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model="kimi-k2.6",
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_context}
